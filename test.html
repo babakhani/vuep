@@ -12,7 +12,7 @@
       <h3>Template script</h3>
       <pre>&lt;script v-pre type="text/x-template" id="example"&gt;</pre>
       <pre>&lt;vuep template="#example"&gt;&lt;/vuep&gt;</pre>
-      <vuep template="#example"></vuep>
+      <vuep :data="{a: 3}" template="#example"></vuep>
     </div>
 
     <div id="sfc">
@@ -45,6 +45,7 @@
   <div class="main">
     <h2> Welcome to <span class="text">{{ name }}</span>!</h2>
     <h2>Features</h2>
+    <pre> {{ data }} </pre>
     <ul>
       <li v-for="text in features">{{ text }}</li>
     </ul>

@@ -9296,7 +9296,7 @@ var Editor = {
 var Preview = {
   name: 'preview',
 
-  props: ['value', 'styles', 'keepData', 'iframe'],
+  props: ['value', 'styles', 'keepData', 'iframe', 'datas', 'store', 'mixin'],
 
   render: function render (h) {
     this.className = 'vuep-scoped-' + this._uid;
@@ -9366,16 +9366,25 @@ var Preview = {
         }
         head.appendChild(this.styleEl);
       }
-
+  
       try {
         var parent = this;
-        this.codeVM = new Vue$1(assign({}, {parent: parent}, val)).$mount(this.codeEl);
+        var store = this.store;
+        var mixin = this.mixin;
+        this.codeVM = new Vue$1(assign({}, {parent: parent}, 
+          val, 
+          {store: store,
+          mixins: [mixin],
+          beforeCreate: function(){
+            this.$store = store;
+          }})).$mount(this.codeEl);
 
         if (lastData) {
           for (var key$2 in lastData) {
             this$1.codeVM[key$2] = lastData[key$2];
           }
         }
+        this.$emit('success', this.codeVM);
       } catch (e) {
         /* istanbul ignore next */
         this.$emit('error', e);
@@ -9521,6 +9530,13 @@ var Vuep$1 = {
   props: {
     template: String,
     options: {},
+    store: Object,
+    mixin: Object,
+    codeEditor: {
+      default: false,
+      type: Boolean
+    },
+    data: [Boolean, String, Object, Array],
     keepData: Boolean,
     value: String,
     scope: Object,
@@ -9540,6 +9556,19 @@ var Vuep$1 = {
     var this$1 = this;
 
     var win;
+    var editorTemplate;
+    if (this.codeEditor) {
+      editorTemplate = h(Editor, {
+        class: 'vuep-editor',
+        props: {
+          value: this.content,
+          options: this.options
+        },
+        on: {
+          change: [this.executeCode, function (val) { return this$1.$emit('input', val); }]
+        }
+      });
+    }
 
     /* istanbul ignore next */
     if (this.error) {
@@ -9553,30 +9582,35 @@ var Vuep$1 = {
           value: this.preview,
           styles: this.styles,
           keepData: this.keepData,
-          iframe: this.iframe
+          iframe: this.iframe,
+          datas: this.data,
+          mixin: this.mixin,
+          store: this.store
         },
         on: {
-          error: this.handleError
+          error: this.handleError,
+          success: this.successHandler
         }
       });
     }
 
     return h('div', { class: 'vuep' }, [
-      h(Editor, {
-        class: 'vuep-editor',
-        props: {
-          value: this.content,
-          options: this.options
-        },
-        on: {
-          change: [this.executeCode, function (val) { return this$1.$emit('input', val); }]
-        }
-      }),
+      editorTemplate,
       win
     ])
   },
 
   watch: {
+    data: {
+      deep: true,
+      handler: function handler (val) {
+        if (this.rendered && this.rendered.$forceUpdate) {
+          this.rendered.socketData = this.data;
+          this.rendered.$forceUpdate();
+          this.$forceUpdate();
+        }
+      }
+    },
     value: {
       immediate: true,
       handler: function handler (val) {
@@ -9586,25 +9620,31 @@ var Vuep$1 = {
   },
 
   created: function created () {
-      /* istanbul ignore next */
-    if (this.$isServer) { return }
-    var content = this.template;
-
-    if (/^[\.#]/.test(this.template)) {
-      var html = document.querySelector(this.template);
-      if (!html) { throw Error(((this.template) + " is not found")) }
-
-      /* istanbul ignore next */
-      content = html.innerHTML;
-    }
-
-    if (content) {
-      this.executeCode(content);
-      this.$emit('input', content);
-    }
+    this.init();
   },
 
   methods: {
+    successHandler: function successHandler (e) {
+      this.rendered = e;
+    },
+    init: function init () {
+      /* istanbul ignore next */
+      if (this.$isServer) { return }
+      var content = this.template;
+
+      if (/^[\.#]/.test(this.template)) {
+        var html = document.querySelector(this.template);
+        if (!html) { throw Error(((this.template) + " is not found")) }
+
+        /* istanbul ignore next */
+        content = html.innerHTML;
+      }
+
+      if (content) {
+        this.executeCode(content);
+        this.$emit('input', content);
+      }
+    },
     handleError: function handleError (err) {
       /* istanbul ignore next */
       this.error = err;

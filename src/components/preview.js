@@ -4,7 +4,7 @@ import assign from '../utils/assign' // eslint-disable-line
 export default {
   name: 'preview',
 
-  props: ['value', 'styles', 'keepData', 'iframe'],
+  props: ['value', 'styles', 'keepData', 'iframe', 'datas', 'store', 'mixin'],
 
   render (h) {
     this.className = 'vuep-scoped-' + this._uid
@@ -72,16 +72,27 @@ export default {
         }
         head.appendChild(this.styleEl)
       }
-
+  
       try {
         const parent = this
-        this.codeVM = new Vue({ parent, ...val }).$mount(this.codeEl)
+        let store = this.store
+        let mixin = this.mixin
+        this.codeVM = new Vue({ 
+          parent, 
+          ...val, 
+          store,
+          mixins: [mixin],
+          beforeCreate: function(){
+            this.$store = store
+          }
+        }).$mount(this.codeEl)
 
         if (lastData) {
           for (const key in lastData) {
             this.codeVM[key] = lastData[key]
           }
         }
+        this.$emit('success', this.codeVM)
       } catch (e) {
         /* istanbul ignore next */
         this.$emit('error', e)
